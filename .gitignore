@@ -5,3 +5,4 @@ __pycache__/
 .vercel
 patch_app.py
 generate_tamil_db.py
+

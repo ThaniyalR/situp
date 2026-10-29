@@ -17,11 +17,23 @@ class SongGame {
   async loadAllSongsIfNeeded() {
     if (this.allSongs.length === 0) {
       try {
-        const res = await fetch('/api/content/all');
-        const data = await res.json();
-        this.allSongs = data.songs || [];
-      } catch (e) {
-        console.warn('Failed to load songs from API, using fallback', e);
+        const res = await fetch('/static/data/content.json');
+        if (res.ok) {
+          const data = await res.json();
+          this.allSongs = data.songs || [];
+        }
+      } catch (e) {}
+
+      if (this.allSongs.length === 0) {
+        try {
+          const res = await fetch('/api/content/all');
+          if (res.ok) {
+            const data = await res.json();
+            this.allSongs = data.songs || [];
+          }
+        } catch (e) {
+          console.warn('Failed to load songs from API, using fallback', e);
+        }
       }
     }
     if (this.allSongs.length === 0) {

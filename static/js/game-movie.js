@@ -15,9 +15,21 @@ class MovieGame {
   async loadAllMoviesIfNeeded() {
     if (this.allMovies.length === 0) {
       try {
+        const res = await fetch('/static/data/content.json');
+        if (res.ok) {
+          const data = await res.json();
+          this.allMovies = data.movies || [];
+          return;
+        }
+      } catch (e) {}
+
+      try {
         const res = await fetch('/api/content/all');
-        const data = await res.json();
-        this.allMovies = data.movies || [];
+        if (res.ok) {
+          const data = await res.json();
+          this.allMovies = data.movies || [];
+          return;
+        }
       } catch (e) {
         console.warn('Failed to load movie content', e);
       }

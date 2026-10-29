@@ -1,29 +1,48 @@
 /**
  * 🃏 Animal Matching Card Game Engine
- * 3 Players | 12 Cards (4 Lion, 4 Tiger, 4 Elephant)
+ * 3 Players | 12 Cards (4 Lion 🦁, 4 Tiger 🐯, 4 Elephant 🐘)
  * Goal: Be first to collect all 4 cards of the same animal!
+ * Works 100% in BOTH Solo/Bots mode AND Room Multiplayer!
  */
 class AnimalMatchingGame {
   constructor() {
     this.selectedCardIndex = null;
     this.isExchanging = false;
-    this.localMode = false;
     this.localState = null;
+    this.celebratedWinner = false;
+  }
+
+  getActiveData(roomData, myPlayerId) {
+    if (roomData && window.partyApp?.currentRoom && !window.appState?.isPassAndPlay) {
+      return {
+        data: roomData,
+        playerId: myPlayerId || window.partyApp.playerId || roomData.players[0]?.id
+      };
+    }
+    if (!this.localState) {
+      this.initLocalGame();
+    }
+    return {
+      data: this.localState,
+      playerId: 'p1'
+    };
   }
 
   // Render the game state based on room data or local state
   render(roomData, myPlayerId) {
-    const gs = roomData.game_state;
-    const players = roomData.players || [];
+    const { data: activeData, playerId: activePlayerId } = this.getActiveData(roomData, myPlayerId);
+
+    const gs = activeData.game_state;
+    const players = activeData.players || [];
     
     // Find my player object and opponents
-    const myPlayer = players.find(p => p.id === myPlayerId) || players[0];
+    const myPlayer = players.find(p => p.id === activePlayerId) || players[0];
     const opponents = players.filter(p => p.id !== myPlayer?.id).slice(0, 2);
 
     // Update Opponents display
     const oppContainer = document.getElementById('animal-opponents-row');
     if (oppContainer) {
-      oppContainer.innerHTML = opponents.map((opp, idx) => {
+      oppContainer.innerHTML = opponents.map((opp) => {
         const isReady = gs.pass_selections && gs.pass_selections[opp.id] !== undefined;
         const oppCards = (gs.hands && gs.hands[opp.id]) || ['hidden', 'hidden', 'hidden', 'hidden'];
         return `
@@ -56,7 +75,7 @@ class AnimalMatchingGame {
     // Render My Hand
     const handContainer = document.getElementById('animal-my-hand');
     const passBtn = document.getElementById('animal-pass-btn');
-    const myHand = (gs.hands && gs.hands[myPlayerId]) || [];
+    const myHand = (gs.hands && gs.hands[activePlayerId]) || [];
 
     if (handContainer) {
       if (gs.status === 'playing' || gs.status === 'game_over') {
@@ -82,8 +101,8 @@ class AnimalMatchingGame {
         }).join('');
       } else {
         handContainer.innerHTML = `
-          <div style="text-align:center; padding: 40px; color: #94a3b8;">
-            <p>Cards will be dealt when host starts the game.</p>
+          <div style="text-align:center; padding: 40px; color: #64748b;">
+            <p>Cards will be dealt when you start the round.</p>
           </div>
         `;
       }
@@ -91,7 +110,7 @@ class AnimalMatchingGame {
 
     // Pass Button state
     if (passBtn) {
-      const alreadyPassed = gs.pass_selections && gs.pass_selections[myPlayerId] !== undefined;
+      const alreadyPassed = gs.pass_selections && gs.pass_selections[activePlayerId] !== undefined;
       if (gs.status !== 'playing' || alreadyPassed) {
         passBtn.disabled = true;
         passBtn.textContent = alreadyPassed ? '✅ Card Passed (Waiting for others...)' : 'Pass Card';
@@ -113,12 +132,8 @@ class AnimalMatchingGame {
     // Host Start / Restart Button
     const startBtn = document.getElementById('animal-start-btn');
     if (startBtn) {
-      if (myPlayer?.is_host) {
-        startBtn.style.display = 'inline-flex';
-        startBtn.textContent = gs.status === 'game_over' ? '🔄 Play Again' : (gs.status === 'waiting' ? '🎮 Deal 12 Cards' : 'Restart Round');
-      } else {
-        startBtn.style.display = 'none';
-      }
+      startBtn.style.display = 'inline-flex';
+      startBtn.textContent = gs.status === 'game_over' ? '🔄 Play Again' : (gs.status === 'waiting' ? '🎮 Deal 12 Cards' : 'Restart Round');
     }
   }
 
@@ -131,7 +146,7 @@ class AnimalMatchingGame {
       case 'elephant':
         return { name: 'Elephant', emoji: '🐘', cssClass: 'elephant' };
       default:
-        return { name: 'Unknown', emoji: '❓', cssClass: '' };
+        return { name: 'Card', emoji: '🎴', cssClass: '' };
     }
   }
 
@@ -158,7 +173,7 @@ class AnimalMatchingGame {
     const idx = this.selectedCardIndex;
     this.selectedCardIndex = null;
 
-    if (window.appState.isPassAndPlay) {
+    if (!window.partyApp?.currentRoom || window.appState?.isPassAndPlay) {
       this.localPassTurn(idx);
     } else {
       await window.partyApp.sendAction('pass_card', { card_index: idx });
@@ -168,7 +183,9 @@ class AnimalMatchingGame {
   async startOrRestart() {
     this.selectedCardIndex = null;
     this.celebratedWinner = false;
-    if (window.appState.isPassAndPlay) {
+    window.soundEngine.cardClick();
+
+    if (!window.partyApp?.currentRoom || window.appState?.isPassAndPlay) {
       this.startLocalGame();
     } else {
       await window.partyApp.sendAction('start_animal_game');
@@ -176,6 +193,10 @@ class AnimalMatchingGame {
   }
 
   // ================= LOCAL PASS & PLAY / BOTS ENGINE =================
+  initLocalGame() {
+    this.startLocalGame();
+  }
+
   startLocalGame() {
     const deck = ['lion', 'lion', 'lion', 'lion', 'tiger', 'tiger', 'tiger', 'tiger', 'elephant', 'elephant', 'elephant', 'elephant'];
     this.shuffle(deck);
@@ -201,11 +222,14 @@ class AnimalMatchingGame {
     };
 
     this.checkLocalWinner();
-    this.render(this.localState, 'p1');
+    this.render();
   }
 
   localPassTurn(myCardIdx) {
+    if (!this.localState) this.startLocalGame();
     const gs = this.localState.game_state;
+    if (gs.status !== 'playing') return;
+
     // P1 picks
     const p1Card = gs.hands['p1'].splice(myCardIdx, 1)[0];
 
@@ -224,7 +248,7 @@ class AnimalMatchingGame {
 
     gs.round += 1;
     this.checkLocalWinner();
-    this.render(this.localState, 'p1');
+    this.render();
   }
 
   botPickCard(hand) {
@@ -239,7 +263,7 @@ class AnimalMatchingGame {
     const gs = this.localState.game_state;
     for (const p of this.localState.players) {
       const hand = gs.hands[p.id];
-      if (hand.length === 4 && new Set(hand).size === 1) {
+      if (hand && hand.length === 4 && new Set(hand).size === 1) {
         gs.status = 'game_over';
         gs.winner = p.id;
         gs.win_animal = hand[0];
@@ -265,4 +289,3 @@ class AnimalMatchingGame {
 }
 
 window.animalGame = new AnimalMatchingGame();
-

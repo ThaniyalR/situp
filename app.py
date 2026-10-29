@@ -31,9 +31,30 @@ app.config['SECRET_KEY'] = 'partygames-super-secret-key-2026'
 def serve_static(filename):
     return send_from_directory(os.path.join(BASE_DIR, 'static'), filename)
 
-# Global Rooms State
+# Global Rooms State with Serverless File Persistence
 ROOMS = {}
 ROOMS_LOCK = threading.Lock()
+ROOMS_FILE = os.path.join('/tmp' if os.path.exists('/tmp') else BASE_DIR, 'party_rooms.json')
+
+def load_rooms_from_disk():
+    global ROOMS
+    if os.path.exists(ROOMS_FILE):
+        try:
+            with open(ROOMS_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                if isinstance(data, dict):
+                    ROOMS.update(data)
+        except Exception:
+            pass
+
+def save_rooms_to_disk():
+    try:
+        with open(ROOMS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(ROOMS, f)
+    except Exception:
+        pass
+
+load_rooms_from_disk()
 
 def generate_room_code():
     chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
@@ -139,11 +160,17 @@ FIVE_SECOND_TOPICS = [
 # ==================== ROOM HELPERS ====================
 
 def get_room(room_code):
-    return ROOMS.get(room_code.upper())
+    if not room_code:
+        return None
+    code = room_code.upper()
+    if code not in ROOMS:
+        load_rooms_from_disk()
+    return ROOMS.get(code)
 
 def update_room_version(room):
     room["version"] = room.get("version", 0) + 1
     room["last_active"] = time.time()
+    save_rooms_to_disk()
 
 def create_new_room(host_name, game_type="hub"):
     code = generate_room_code()

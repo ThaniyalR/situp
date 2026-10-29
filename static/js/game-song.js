@@ -5,10 +5,12 @@
  * - 10 Songs per Round
  * - Automatic shuffle of 10 new songs every round!
  * - Real Web Audio API synthesizer melodies!
+ * - Works 100% in BOTH Solo/Pass & Play mode AND Room Multiplayer!
  */
 class SongGame {
   constructor() {
     this.allSongs = [];
+    this.localState = null;
     this.isPlayingMelody = false;
   }
 
@@ -19,16 +21,97 @@ class SongGame {
         const data = await res.json();
         this.allSongs = data.songs || [];
       } catch (e) {
-        console.warn('Failed to load songs', e);
+        console.warn('Failed to load songs from API, using fallback', e);
       }
     }
+    if (this.allSongs.length === 0) {
+      this.allSongs = [
+        {
+          title: "Why This Kolaveri Di",
+          artist: "Dhanush & Anirudh (3)",
+          emojis: "💔🌙🥣",
+          lyrics_clue: "Why this kolaveri kolaveri kolaveri di... rhythm correct ah irukku!",
+          melody: [[294, 250, 40], [294, 250, 40], [330, 250, 40], [392, 350, 50], [330, 300, 50], [294, 400, 60]]
+        },
+        {
+          title: "Vaathi Coming",
+          artist: "Anirudh Ravichander (Master)",
+          emojis: "🧑‍🏫🥃💥",
+          lyrics_clue: "Vaathi coming ottha sollu... thalapathy kacheri!",
+          melody: [[261, 180, 30], [261, 180, 30], [294, 200, 30], [330, 220, 30], [392, 400, 60]]
+        },
+        {
+          title: "Arabic Kuthu",
+          artist: "Anirudh & Jonita Gandhi (Beast)",
+          emojis: "💃🕌🌊",
+          lyrics_clue: "Halamithi habibo... malama pitha pithadhey!",
+          melody: [[440, 200, 30], [440, 200, 30], [493, 200, 30], [523, 220, 30], [587, 350, 50]]
+        },
+        {
+          title: "Rowdy Baby",
+          artist: "Dhanush & Dhee (Maari 2)",
+          emojis: "🕺👒🔥",
+          lyrics_clue: "Hey rowdy baby... un mugatha paatha podhum!",
+          melody: [[349, 220, 30], [392, 220, 30], [440, 250, 40], [523, 350, 50]]
+        },
+        {
+          title: "Hukum",
+          artist: "Anirudh (Jailer)",
+          emojis: "👑🐅💥",
+          lyrics_clue: "Hukum... thalaivar alappara! Alappara kelapparom!",
+          melody: [[196, 250, 40], [220, 250, 40], [261, 300, 40], [294, 400, 60]]
+        }
+      ];
+    }
+  }
+
+  initLocalState() {
+    const total = this.allSongs.length || 500;
+    const shuffled = [];
+    for (let i = 0; i < total; i++) shuffled.push(i);
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+
+    this.localState = {
+      players: [{ id: 'p1', name: 'You', avatar: '🦁', is_host: true, score: 0 }],
+      game_state: {
+        status: 'playing',
+        round_number: 1,
+        current_index: 0,
+        total_in_round: 10,
+        question_order: shuffled.slice(0, 10),
+        revealed_clues: 0,
+        round_over: false,
+        round_completed: false
+      }
+    };
+  }
+
+  getActiveData(roomData, myPlayerId) {
+    if (roomData && window.partyApp?.currentRoom && !window.appState?.isPassAndPlay) {
+      return {
+        data: roomData,
+        playerId: myPlayerId || window.partyApp.playerId || roomData.players[0]?.id
+      };
+    }
+    if (!this.localState) {
+      this.initLocalState();
+    }
+    return {
+      data: this.localState,
+      playerId: 'p1'
+    };
   }
 
   async render(roomData, myPlayerId) {
     await this.loadAllSongsIfNeeded();
-    const gs = roomData.game_state;
-    const players = roomData.players || [];
-    const myPlayer = players.find(p => p.id === myPlayerId) || players[0];
+    const { data: activeData, playerId: activePlayerId } = this.getActiveData(roomData, myPlayerId);
+
+    const gs = activeData.game_state;
+    const players = activeData.players || [];
+    const myPlayer = players.find(p => p.id === activePlayerId) || players[0];
     const roundNum = gs.round_number || 1;
 
     const container = document.getElementById('song-container');
@@ -42,13 +125,9 @@ class SongGame {
           <p style="color: #64748b; max-width: 500px; margin: 10px auto 24px;">
             500 hit Tamil songs! 10 tracks per round with synthesized melodies and lyric clues.
           </p>
-          ${myPlayer?.is_host ? `
-            <button class="btn-primary" onclick="window.songGame.nextSong()">
-              🎶 Start Round 1 (10 Tracks) ➔
-            </button>
-          ` : `
-            <p style="color: #7c3aed;">Waiting for host to play...</p>
-          `}
+          <button class="btn-primary" onclick="window.songGame.nextSong()">
+            🎶 Start Round 1 (10 Tracks) ➔
+          </button>
         </div>
       `;
       return;
@@ -81,13 +160,9 @@ class SongGame {
             </div>
           </div>
 
-          ${myPlayer?.is_host ? `
-            <button class="btn-primary" style="font-size: 1.05rem; padding: 14px 30px;" onclick="window.songGame.startNextRound()">
-              🔄 Start Round ${roundNum + 1} (Shuffle 10 New Songs) ➔
-            </button>
-          ` : `
-            <p style="color: #7c3aed; font-weight: 600;">Waiting for host to start Round ${roundNum + 1}...</p>
-          `}
+          <button class="btn-primary" style="font-size: 1.05rem; padding: 14px 30px;" onclick="window.songGame.startNextRound()">
+            🔄 Start Round ${roundNum + 1} (Shuffle 10 New Songs) ➔
+          </button>
         </div>
       `;
       return;
@@ -96,7 +171,7 @@ class SongGame {
     const order = gs.question_order || [0];
     const currIdx = gs.current_index || 0;
     const qIndex = order[currIdx % order.length];
-    const song = this.allSongs[qIndex] || {
+    const song = this.allSongs[qIndex] || this.allSongs[0] || {
       title: 'Why This Kolaveri Di',
       artist: 'Dhanush & Anirudh',
       emojis: '💔🌙🥣',
@@ -198,24 +273,21 @@ class SongGame {
             Scores:
             ${players.map(p => `<span style="margin-left: 8px; color: #0f172a;">${p.name}: <strong>${p.score}</strong></span>`).join(' | ')}
           </div>
-          ${myPlayer?.is_host ? `
-            <button class="btn-primary" onclick="window.songGame.nextSong()" style="padding: 8px 18px;">
-              ${isLastInRound ? '🏁 Finish Round (10/10) ➔' : 'Next Song ➔'}
-            </button>
-          ` : ''}
+          <button class="btn-primary" onclick="window.songGame.nextSong()" style="padding: 8px 18px;">
+            ${isLastInRound ? '🏁 Finish Round (10/10) ➔' : 'Next Song ➔'}
+          </button>
         </div>
       </div>
     `;
   }
 
   playCurrentTune() {
-    const roomData = window.partyApp.currentRoom;
-    if (!roomData) return;
-    const gs = roomData.game_state;
+    const { data: activeData } = this.getActiveData(window.partyApp?.currentRoom);
+    const gs = activeData.game_state;
     const order = gs.question_order || [0];
     const currIdx = gs.current_index || 0;
     const qIndex = order[currIdx % order.length];
-    const song = this.allSongs[qIndex];
+    const song = this.allSongs[qIndex] || this.allSongs[0];
     if (!song || !song.melody) return;
 
     this.isPlayingMelody = true;
@@ -237,27 +309,82 @@ class SongGame {
 
   async revealClue() {
     window.soundEngine.cardClick();
+    if (!window.partyApp?.currentRoom || window.appState?.isPassAndPlay) {
+      if (!this.localState) this.initLocalState();
+      this.localState.game_state.revealed_clues = Math.min(2, (this.localState.game_state.revealed_clues || 0) + 1);
+      this.render();
+      return;
+    }
     await window.partyApp.sendAction('reveal_song_clue');
   }
 
   async revealAnswer() {
     window.soundEngine.ding();
     window.confetti.trigger(60);
+    if (!window.partyApp?.currentRoom || window.appState?.isPassAndPlay) {
+      if (!this.localState) this.initLocalState();
+      this.localState.game_state.round_over = true;
+      this.render();
+      return;
+    }
     await window.partyApp.sendAction('reveal_song_answer');
   }
 
   async awardPoint(playerId) {
     window.soundEngine.ding();
+    if (!window.partyApp?.currentRoom || window.appState?.isPassAndPlay) {
+      if (!this.localState) this.initLocalState();
+      const p = this.localState.players.find(x => x.id === playerId) || this.localState.players[0];
+      if (p) p.score += 1;
+      this.localState.game_state.round_over = true;
+      this.render();
+      return;
+    }
     await window.partyApp.sendAction('award_song_point', { player_id: playerId });
   }
 
   async nextSong() {
     window.soundEngine.cardClick();
+    if (!window.partyApp?.currentRoom || window.appState?.isPassAndPlay) {
+      if (!this.localState) this.initLocalState();
+      const gs = this.localState.game_state;
+      if (gs.current_index + 1 >= (gs.question_order?.length || 10)) {
+        gs.status = 'round_summary';
+        gs.round_completed = true;
+      } else {
+        gs.current_index += 1;
+        gs.revealed_clues = 0;
+        gs.status = 'playing';
+        gs.round_over = false;
+      }
+      this.render();
+      return;
+    }
     await window.partyApp.sendAction('next_song');
   }
 
   async startNextRound() {
     window.soundEngine.cardClick();
+    if (!window.partyApp?.currentRoom || window.appState?.isPassAndPlay) {
+      if (!this.localState) this.initLocalState();
+      const gs = this.localState.game_state;
+      gs.round_number += 1;
+      const total = this.allSongs.length || 500;
+      const indices = [];
+      for (let i = 0; i < total; i++) indices.push(i);
+      for (let i = indices.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [indices[i], indices[j]] = [indices[j], indices[i]];
+      }
+      gs.question_order = indices.slice(0, 10);
+      gs.current_index = 0;
+      gs.revealed_clues = 0;
+      gs.status = 'playing';
+      gs.round_over = false;
+      gs.round_completed = false;
+      this.render();
+      return;
+    }
     await window.partyApp.sendAction('start_next_song_round');
   }
 

@@ -4,10 +4,12 @@
  * - 500 Tamil Blockbusters & Emojis
  * - 10 Movies per Round
  * - Automatic shuffle of 10 new movies every round!
+ * - Works 100% in BOTH Solo/Pass & Play mode AND Room Multiplayer!
  */
 class MovieGame {
   constructor() {
     this.allMovies = [];
+    this.localState = null;
   }
 
   async loadAllMoviesIfNeeded() {
@@ -22,11 +24,48 @@ class MovieGame {
     }
   }
 
+  initLocalState() {
+    const total = this.allMovies.length || 500;
+    const shuffled = [];
+    for (let i = 0; i < total; i++) shuffled.push(i);
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+
+    this.localState = {
+      players: [{ id: 'p1', name: 'You', avatar: '🦁', score: 0 }],
+      game_state: {
+        status: 'playing',
+        round_number: 1,
+        current_index: 0,
+        total_in_round: 10,
+        question_order: shuffled.slice(0, 10),
+        revealed_hints: 0,
+        round_over: false,
+        round_completed: false
+      }
+    };
+  }
+
   async render(roomData, myPlayerId) {
     await this.loadAllMoviesIfNeeded();
-    const gs = roomData.game_state;
-    const players = roomData.players || [];
-    const myPlayer = players.find(p => p.id === myPlayerId) || players[0];
+
+    // Use local state if not in room or in pass and play
+    let activeData = roomData;
+    let activePlayerId = myPlayerId;
+
+    if (!roomData || window.appState?.isPassAndPlay || !window.partyApp?.currentRoom) {
+      if (!this.localState) {
+        this.initLocalState();
+      }
+      activeData = this.localState;
+      activePlayerId = 'p1';
+    }
+
+    const gs = activeData.game_state;
+    const players = activeData.players || [];
+    const myPlayer = players.find(p => p.id === activePlayerId) || players[0];
     const roundNum = gs.round_number || 1;
 
     const container = document.getElementById('movie-container');
@@ -40,13 +79,9 @@ class MovieGame {
           <p style="color: #64748b; max-width: 500px; margin: 10px auto 24px;">
             500 iconic Tamil movies! 10 movies per round with automatic shuffles.
           </p>
-          ${myPlayer?.is_host ? `
-            <button class="btn-primary" onclick="window.movieGame.nextMovie()">
-              🍿 Start Round 1 (10 Movies) ➔
-            </button>
-          ` : `
-            <p style="color: #7c3aed;">Waiting for host to begin...</p>
-          `}
+          <button class="btn-primary" onclick="window.movieGame.nextMovie()">
+            🍿 Start Round 1 (10 Movies) ➔
+          </button>
         </div>
       `;
       return;
@@ -79,13 +114,9 @@ class MovieGame {
             </div>
           </div>
 
-          ${myPlayer?.is_host ? `
-            <button class="btn-primary" style="font-size: 1.05rem; padding: 14px 30px;" onclick="window.movieGame.startNextRound()">
-              🔄 Start Round ${roundNum + 1} (Shuffle 10 New Movies) ➔
-            </button>
-          ` : `
-            <p style="color: #7c3aed; font-weight: 600;">Waiting for host to start Round ${roundNum + 1}...</p>
-          `}
+          <button class="btn-primary" style="font-size: 1.05rem; padding: 14px 30px;" onclick="window.movieGame.startNextRound()">
+            🔄 Start Round ${roundNum + 1} (Shuffle 10 New Movies) ➔
+          </button>
         </div>
       `;
       return;
@@ -171,11 +202,9 @@ class MovieGame {
             Scores:
             ${players.map(p => `<span style="margin-left: 8px; color: #0f172a;">${p.name}: <strong>${p.score}</strong></span>`).join(' | ')}
           </div>
-          ${myPlayer?.is_host ? `
-            <button class="btn-primary" onclick="window.movieGame.nextMovie()" style="padding: 8px 18px;">
-              ${isLastInRound ? '🏁 Finish Round (10/10) ➔' : 'Next Movie ➔'}
-            </button>
-          ` : ''}
+          <button class="btn-primary" onclick="window.movieGame.nextMovie()" style="padding: 8px 18px;">
+            ${isLastInRound ? '🏁 Finish Round (10/10) ➔' : 'Next Movie ➔'}
+          </button>
         </div>
       </div>
     `;
@@ -183,27 +212,82 @@ class MovieGame {
 
   async revealHint() {
     window.soundEngine.cardClick();
+    if (!window.partyApp?.currentRoom || window.appState?.isPassAndPlay) {
+      if (!this.localState) this.initLocalState();
+      this.localState.game_state.revealed_hints += 1;
+      this.render();
+      return;
+    }
     await window.partyApp.sendAction('reveal_hint');
   }
 
   async revealAnswer() {
     window.soundEngine.ding();
     window.confetti.trigger(60);
+    if (!window.partyApp?.currentRoom || window.appState?.isPassAndPlay) {
+      if (!this.localState) this.initLocalState();
+      this.localState.game_state.round_over = true;
+      this.render();
+      return;
+    }
     await window.partyApp.sendAction('reveal_movie_answer');
   }
 
   async awardPoint(playerId) {
     window.soundEngine.ding();
+    if (!window.partyApp?.currentRoom || window.appState?.isPassAndPlay) {
+      if (!this.localState) this.initLocalState();
+      const p = this.localState.players.find(x => x.id === playerId) || this.localState.players[0];
+      if (p) p.score += 1;
+      this.localState.game_state.round_over = true;
+      this.render();
+      return;
+    }
     await window.partyApp.sendAction('award_movie_point', { player_id: playerId });
   }
 
   async nextMovie() {
     window.soundEngine.cardClick();
+    if (!window.partyApp?.currentRoom || window.appState?.isPassAndPlay) {
+      if (!this.localState) this.initLocalState();
+      const gs = this.localState.game_state;
+      if (gs.current_index + 1 >= (gs.question_order?.length || 10)) {
+        gs.status = 'round_summary';
+        gs.round_completed = true;
+      } else {
+        gs.current_index += 1;
+        gs.revealed_hints = 0;
+        gs.status = 'playing';
+        gs.round_over = false;
+      }
+      this.render();
+      return;
+    }
     await window.partyApp.sendAction('next_movie');
   }
 
   async startNextRound() {
     window.soundEngine.cardClick();
+    if (!window.partyApp?.currentRoom || window.appState?.isPassAndPlay) {
+      if (!this.localState) this.initLocalState();
+      const gs = this.localState.game_state;
+      gs.round_number += 1;
+      const total = this.allMovies.length || 500;
+      const indices = [];
+      for (let i = 0; i < total; i++) indices.push(i);
+      for (let i = indices.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [indices[i], indices[j]] = [indices[j], indices[i]];
+      }
+      gs.question_order = indices.slice(0, 10);
+      gs.current_index = 0;
+      gs.revealed_hints = 0;
+      gs.status = 'playing';
+      gs.round_over = false;
+      gs.round_completed = false;
+      this.render();
+      return;
+    }
     await window.partyApp.sendAction('start_next_movie_round');
   }
 

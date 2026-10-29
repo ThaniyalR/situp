@@ -1,14 +1,21 @@
 /**
  * Party Games Hub - Main Orchestration Script
+ * Features:
+ * - Instant responsive button actions in BOTH Local & Multiplayer modes
+ * - Automatic route and render with zero latency
+ * - Room creation, fast sync, and graceful offline fallback
  */
 class PartyApp {
   constructor() {
     this.currentRoom = null;
-    this.playerId = localStorage.getItem('party_player_id') || null;
+    this.playerId = localStorage.getItem('party_player_id') || 'p_' + Math.random().toString(36).substr(2, 6);
     this.playerName = localStorage.getItem('party_player_name') || 'Player ' + Math.floor(Math.random() * 90 + 10);
     this.pollTimer = null;
     this.activeView = 'hub';
     this.isPassAndPlay = false;
+
+    localStorage.setItem('party_player_id', this.playerId);
+    localStorage.setItem('party_player_name', this.playerName);
 
     window.appState = this;
   }
@@ -18,19 +25,26 @@ class PartyApp {
     const urlParams = new URLSearchParams(window.location.search);
     const roomParam = urlParams.get('room');
     if (roomParam) {
-      document.getElementById('join-code-input').value = roomParam.toUpperCase();
+      const joinInput = document.getElementById('join-code-input');
+      if (joinInput) joinInput.value = roomParam.toUpperCase();
       this.openModal('join-room-modal');
     }
 
     // Restore name in inputs
     const nameInput = document.getElementById('player-name-input');
     if (nameInput) nameInput.value = this.playerName;
+    const hostInput = document.getElementById('host-name-input');
+    if (hostInput) hostInput.value = this.playerName;
+    const joinNameInput = document.getElementById('join-name-input');
+    if (joinNameInput) joinNameInput.value = this.playerName;
 
     // Check if we have an active room saved in session
     const savedRoom = sessionStorage.getItem('party_active_room');
     if (savedRoom && this.playerId) {
       this.syncRoomState(savedRoom);
     }
+
+    this.updateHeaderBadge();
 
     // Set up auto-poll fallback
     this.startPolling();
@@ -51,15 +65,38 @@ class PartyApp {
       backBtn.style.display = viewName === 'hub' ? 'none' : 'flex';
     }
 
-    // Trigger sub-renderer
-    if (this.currentRoom) {
-      this.renderCurrentGame();
-    }
+    // Scroll to top
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    // ALWAYS render current game state immediately
+    this.renderCurrentGame();
   }
 
   goBackToHub() {
     window.soundEngine.cardClick();
     this.switchView('hub');
+  }
+
+  getGameTypeFromView(viewName) {
+    switch (viewName) {
+      case 'animal': return 'animal_matching';
+      case 'imposter': return 'imposter';
+      case 'movie': return 'guess_movie';
+      case 'song': return 'guess_song';
+      case 'party': return 'party_extras';
+      default: return 'hub';
+    }
+  }
+
+  getViewFromGameType(gameType) {
+    switch (gameType) {
+      case 'animal_matching': return 'animal';
+      case 'imposter': return 'imposter';
+      case 'guess_movie': return 'movie';
+      case 'guess_song': return 'song';
+      case 'party_extras': return 'party';
+      default: return 'hub';
+    }
   }
 
   // ================= ROOM MANAGEMENT =================
@@ -87,10 +124,18 @@ class PartyApp {
 
         this.closeModal('create-room-modal');
         this.updateHeaderBadge();
-        this.selectGame(gameType);
+
+        if (gameType && gameType !== 'hub') {
+          this.routeToGameView(gameType);
+        } else {
+          this.openShareModal();
+        }
       }
     } catch (e) {
-      alert('Could not create room: ' + e.message);
+      console.warn('Could not create room online, continuing in instant mode', e);
+      if (gameType && gameType !== 'hub') {
+        this.routeToGameView(gameType);
+      }
     }
   }
 
@@ -126,7 +171,7 @@ class PartyApp {
 
         this.closeModal('join-room-modal');
         this.updateHeaderBadge();
-        this.selectGame(data.room.game_type);
+        this.routeToGameView(data.room.game_type);
       } else {
         alert(data.error || 'Failed to join room');
       }
@@ -137,39 +182,19 @@ class PartyApp {
 
   async selectGame(gameType) {
     window.soundEngine.cardClick();
-    // If we don't have a room yet, create one automatically
-    if (!this.currentRoom && !this.isPassAndPlay) {
-      await this.createRoom(gameType);
-      return;
-    }
+    
+    // Switch view immediately with zero lag
+    this.routeToGameView(gameType);
 
+    // If connected to a room, inform room
     if (this.currentRoom) {
       await this.sendAction('switch_game', { game_type: gameType });
     }
-
-    this.routeToGameView(gameType);
   }
 
   routeToGameView(gameType) {
-    switch (gameType) {
-      case 'animal_matching':
-        this.switchView('animal');
-        break;
-      case 'imposter':
-        this.switchView('imposter');
-        break;
-      case 'guess_movie':
-        this.switchView('movie');
-        break;
-      case 'guess_song':
-        this.switchView('song');
-        break;
-      case 'party_extras':
-        this.switchView('party');
-        break;
-      default:
-        this.switchView('hub');
-    }
+    const viewName = this.getViewFromGameType(gameType);
+    this.switchView(viewName);
   }
 
   async sendAction(action, payload = {}, subGame = null) {
@@ -191,10 +216,18 @@ class PartyApp {
         this.currentRoom = data.room;
         this.renderCurrentGame();
       } else {
-        if (data.error) alert(data.error);
+        if (data.error && data.error.includes('Room not found')) {
+          // Room session expired on serverless container; clear session gracefully
+          this.currentRoom = null;
+          sessionStorage.removeItem('party_active_room');
+          this.updateHeaderBadge();
+          this.renderCurrentGame();
+        } else if (data.error) {
+          console.warn('Action error:', data.error);
+        }
       }
     } catch (e) {
-      console.warn('Action failed', e);
+      console.warn('Action network failure', e);
     }
   }
 
@@ -206,12 +239,13 @@ class PartyApp {
       if (savedCode && !this.isPassAndPlay) {
         await this.syncRoomState(savedCode);
       }
-    }, 700);
+    }, 800);
   }
 
   async syncRoomState(roomCode) {
     try {
       const res = await fetch(`/api/room/state/${roomCode}?player_id=${this.playerId || ''}`);
+      if (!res.ok) return;
       const data = await res.json();
       if (data.success) {
         const prevVersion = this.currentRoom?.version;
@@ -222,29 +256,29 @@ class PartyApp {
         if (prevVersion !== data.room.version) {
           if (this.activeView === 'hub' && data.room.game_type !== 'hub') {
             this.routeToGameView(data.room.game_type);
+          } else {
+            this.renderCurrentGame();
           }
-          this.renderCurrentGame();
         }
       }
     } catch (e) {
-      // Offline or idle
+      // Offline or network idle
     }
   }
 
   renderCurrentGame() {
-    if (!this.currentRoom) return;
-    const gType = this.currentRoom.game_type;
+    const gType = this.currentRoom?.game_type || this.getGameTypeFromView(this.activeView);
 
-    if (gType === 'animal_matching') {
-      window.animalGame.render(this.currentRoom, this.playerId);
-    } else if (gType === 'imposter') {
-      window.imposterGame.render(this.currentRoom, this.playerId);
-    } else if (gType === 'guess_movie') {
-      window.movieGame.render(this.currentRoom, this.playerId);
-    } else if (gType === 'guess_song') {
-      window.songGame.render(this.currentRoom, this.playerId);
-    } else if (gType === 'party_extras') {
-      window.partyExtras.render(this.currentRoom, this.playerId);
+    if (gType === 'animal_matching' || this.activeView === 'animal') {
+      window.animalGame?.render(this.currentRoom, this.playerId);
+    } else if (gType === 'imposter' || this.activeView === 'imposter') {
+      window.imposterGame?.render(this.currentRoom, this.playerId);
+    } else if (gType === 'guess_movie' || this.activeView === 'movie') {
+      window.movieGame?.render(this.currentRoom, this.playerId);
+    } else if (gType === 'guess_song' || this.activeView === 'song') {
+      window.songGame?.render(this.currentRoom, this.playerId);
+    } else if (gType === 'party_extras' || this.activeView === 'party') {
+      window.partyExtras?.render(this.currentRoom, this.playerId);
     }
   }
 
@@ -257,25 +291,6 @@ class PartyApp {
     this.updateHeaderBadge();
 
     this.routeToGameView(gameType);
-
-    if (gameType === 'animal_matching') {
-      window.animalGame.startLocalGame();
-    } else if (gameType === 'guess_movie') {
-      window.movieGame.render({
-        game_state: { status: 'playing', current_index: 0, question_order: [0, 1, 2, 3, 4], revealed_hints: 0 },
-        players: [{ id: 'p1', name: 'You', avatar: '🦁', score: 0 }]
-      }, 'p1');
-    } else if (gameType === 'guess_song') {
-      window.songGame.render({
-        game_state: { status: 'playing', current_index: 0, question_order: [0, 1, 2, 3, 4], revealed_clues: 0 },
-        players: [{ id: 'p1', name: 'You', avatar: '🦁', score: 0 }]
-      }, 'p1');
-    } else if (gameType === 'party_extras') {
-      window.partyExtras.render({
-        game_state: { sub_game: 'truth_dare', bottle_angle: 0 },
-        players: [{ id: 'p1', name: 'You', avatar: '🦁' }]
-      }, 'p1');
-    }
   }
 
   // ================= UI HELPERS & MODALS =================
@@ -285,23 +300,23 @@ class PartyApp {
 
     if (this.currentRoom) {
       badge.innerHTML = `
-        <div class="room-badge" onclick="window.partyApp.openShareModal()">
+        <div class="room-badge" onclick="window.partyApp.openShareModal()" title="Share Room Code">
           <span>ROOM: <strong>${this.currentRoom.code}</strong></span>
-          <span style="font-size:0.75rem; background: rgba(255,255,255,0.2); padding:2px 6px; border-radius:10px;">
-            ${this.currentRoom.players.length} 👤
+          <span style="font-size:0.75rem; background: rgba(124,58,237,0.15); padding:2px 8px; border-radius:10px; margin-left: 4px;">
+            ${this.currentRoom.players ? this.currentRoom.players.length : 1} 👤
           </span>
         </div>
       `;
     } else if (this.isPassAndPlay) {
       badge.innerHTML = `
-        <div class="room-badge" style="background: rgba(16,185,129,0.2); border-color: rgba(16,185,129,0.4); color: #34d399;">
-          <span>Single Device Mode</span>
+        <div class="room-badge" style="background: rgba(16,185,129,0.12); border-color: rgba(16,185,129,0.3); color: #059669;">
+          <span>🤖 Solo / Bots</span>
         </div>
       `;
     } else {
       badge.innerHTML = `
-        <div class="room-badge" onclick="window.partyApp.openModal('join-room-modal')">
-          <span>Join Room</span>
+        <div class="room-badge" onclick="window.partyApp.openModal('create-room-modal')" title="Host Online Room">
+          <span>✨ Host Room</span>
         </div>
       `;
     }
@@ -313,7 +328,7 @@ class PartyApp {
     const wifiIpText = document.getElementById('share-wifi-ip');
     if (modalCode) modalCode.textContent = this.currentRoom.code;
     if (wifiIpText) {
-      wifiIpText.textContent = `http://${window.location.hostname}:5000`;
+      wifiIpText.textContent = window.location.origin;
     }
     this.openModal('share-room-modal');
   }
@@ -349,4 +364,3 @@ window.partyApp = new PartyApp();
 document.addEventListener('DOMContentLoaded', () => {
   window.partyApp.init();
 });
-

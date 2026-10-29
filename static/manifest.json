@@ -1,0 +1,34 @@
+{
+  "name": "Party Play - Tamil Party Games Hub",
+  "short_name": "Party Play",
+  "description": "Tamil Multiplayer Hub: Animal Matching, The Imposter, Guess the Movie & Song, Truth or Dare!",
+  "start_url": "/",
+  "id": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#ffffff",
+  "theme_color": "#db2777",
+  "lang": "en",
+  "categories": ["games", "entertainment", "social"],
+  "icons": [
+    {
+      "src": "/static/img/logo-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/static/img/logo-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/static/img/logo-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

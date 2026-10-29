@@ -4,7 +4,16 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Party Play - Multiplayer Party Games</title>
-  <link rel="icon" type="image/png" href="/static/img/logo.png">
+  <link rel="icon" type="image/png" href="/static/img/logo-192.png">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#db2777">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Party Play">
+  <link rel="apple-touch-icon" sizes="192x192" href="/static/img/logo-192.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="/static/img/logo-192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="/static/img/logo-512.png">
   <link rel="stylesheet" href="/static/css/styles.css">
   <link rel="stylesheet" href="/static/css/style.css">
   <link rel="stylesheet" href="/static/style.css">
@@ -1066,6 +1075,7 @@ body {
       <div id="room-badge-container">
         <!-- Room badge populated by JS -->
       </div>
+      <button class="icon-btn" id="install-pwa-btn" style="display: none; border-color: #db2777; color: #db2777;" onclick="window.partyApp.installPwa()" title="Install Party Play App">📲</button>
       <button class="icon-btn" id="mute-btn" onclick="const m = window.soundEngine.toggleMute(); this.textContent = m ? '🔇' : '🔊';" title="Toggle Sound">
         🔊
       </button>
@@ -1093,6 +1103,9 @@ body {
           </button>
           <button class="btn-secondary" onclick="window.partyApp.startPassAndPlay('animal_matching')" style="border-color: #38bdf8; color: #38bdf8;">
             🤖 Play with Bots (Solo)
+          </button>
+          <button class="btn-secondary" id="hero-install-btn" style="display: none; border-color: #db2777; color: #db2777; font-weight: 700;" onclick="window.partyApp.installPwa()">
+            📲 Install App
           </button>
         </div>
       </div>

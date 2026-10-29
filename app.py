@@ -31,6 +31,16 @@ app.config['SECRET_KEY'] = 'partygames-super-secret-key-2026'
 def serve_static(filename):
     return send_from_directory(os.path.join(BASE_DIR, 'static'), filename)
 
+@app.route('/manifest.json')
+def pwa_manifest():
+    return send_from_directory(os.path.join(BASE_DIR, 'static'), 'manifest.json', mimetype='application/manifest+json')
+
+@app.route('/sw.js')
+def pwa_service_worker():
+    response = send_from_directory(os.path.join(BASE_DIR, 'static'), 'sw.js', mimetype='application/javascript')
+    response.headers['Service-Worker-Allowed'] = '/'
+    return response
+
 # Global Rooms State with Serverless File Persistence
 ROOMS = {}
 ROOMS_LOCK = threading.Lock()

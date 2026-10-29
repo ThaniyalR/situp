@@ -357,7 +357,55 @@ class PartyApp {
     const m = document.getElementById(modalId);
     if (m) m.classList.remove('open');
   }
+
+  installPwa() {
+    window.soundEngine.cardClick();
+    if (window.deferredPrompt) {
+      window.deferredPrompt.prompt();
+      window.deferredPrompt.userChoice.then((choiceResult) => {
+        if (choiceResult.outcome === 'accepted') {
+          console.log('User installed Party Play PWA!');
+        }
+        window.deferredPrompt = null;
+        const hBtn = document.getElementById('install-pwa-btn');
+        const heroBtn = document.getElementById('hero-install-btn');
+        if (hBtn) hBtn.style.display = 'none';
+        if (heroBtn) heroBtn.style.display = 'none';
+      });
+    } else {
+      alert("📲 How to Install Party Play on your phone:\n\n• On iPhone / iPad (Safari):\n  Tap the Share icon [↑] at the bottom, then scroll down and tap 'Add to Home Screen' (+).\n\n• On Android (Chrome):\n  Tap the 3 dots menu [⋮] at top right, then tap 'Install app' or 'Add to Home screen'.\n\n• On Desktop (Chrome / Edge):\n  Click the Install icon in the browser address bar at the top right.");
+    }
+  }
 }
+
+// Service Worker Registration for PWA
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js', { scope: '/' })
+      .then(reg => console.log('Party Play ServiceWorker registered!', reg.scope))
+      .catch(err => console.warn('ServiceWorker registration error', err));
+  });
+}
+
+// PWA Install Prompt Handler
+window.deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  window.deferredPrompt = e;
+  const hBtn = document.getElementById('install-pwa-btn');
+  const heroBtn = document.getElementById('hero-install-btn');
+  if (hBtn) hBtn.style.display = 'inline-flex';
+  if (heroBtn) heroBtn.style.display = 'inline-flex';
+});
+
+window.addEventListener('appinstalled', () => {
+  window.deferredPrompt = null;
+  const hBtn = document.getElementById('install-pwa-btn');
+  const heroBtn = document.getElementById('hero-install-btn');
+  if (hBtn) hBtn.style.display = 'none';
+  if (heroBtn) heroBtn.style.display = 'none';
+  window.confetti.trigger(100);
+});
 
 // Global bootstrap
 window.partyApp = new PartyApp();

@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Party Play - Multiplayer Party Games</title>
+  <link rel="stylesheet" href="/static/css/styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <!-- App Header -->
+  <header class="app-header">
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <button class="icon-btn" id="header-back-btn" style="display: none;" onclick="window.partyApp.goBackToHub()" title="Back to Games Hub">
+        ←
+      </button>
+      <div class="brand" onclick="window.partyApp.goBackToHub()">
+        <span class="brand-icon">🎉</span>
+        <span class="brand-title">Party Play</span>
+      </div>
+    </div>
+
+    <div class="header-controls">
+      <div id="room-badge-container">
+        <!-- Room badge populated by JS -->
+      </div>
+      <button class="icon-btn" id="mute-btn" onclick="const m = window.soundEngine.toggleMute(); this.textContent = m ? '🔇' : '🔊';" title="Toggle Sound">
+        🔊
+      </button>
+      <button class="icon-btn" onclick="window.partyApp.openModal('rules-modal')" title="Game Rules & How to Play">
+        ❓
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Content Container -->
+  <main class="main-content">
+
+    <!-- ==================== VIEW 1: HUB / GAME SELECTION ==================== -->
+    <section id="view-hub" class="view-section active">
+      <div class="hero-banner">
+        <h1>Play Party Games With Friends</h1>
+        <p>Real-time multiplayer on multiple phones or shared screen on one device. No downloads required!</p>
+        <div class="action-row">
+          <button class="btn-primary" onclick="window.partyApp.openModal('create-room-modal')">
+            ✨ Host Room
+          </button>
+          <button class="btn-secondary" onclick="window.partyApp.openModal('join-room-modal')">
+            🔑 Join with Code
+          </button>
+          <button class="btn-secondary" onclick="window.partyApp.startPassAndPlay('animal_matching')" style="border-color: #38bdf8; color: #38bdf8;">
+            🤖 Play with Bots (Solo)
+          </button>
+        </div>
+      </div>
+
+      <div class="games-grid">
+        <!-- Game 1: Animal Matching Card Game -->
+        <div class="game-card" style="--accent-gradient: linear-gradient(90deg, #f59e0b, #ea580c); --card-glow: 0 0 25px rgba(245, 158, 11, 0.3);"
+             onclick="window.partyApp.selectGame('animal_matching')">
+          <div class="card-top">
+            <div class="card-icon">🃏🦁</div>
+            <div class="players-pill">3 PLAYERS • 12 CARDS</div>
+          </div>
+          <h3>Animal Matching</h3>
+          <p>4 Lions, 4 Tigers, 4 Elephants dealt to 3 players. Swap cards clockwise every round to collect 4 matching animals first!</p>
+          <div class="card-footer">
+            <div class="tag-list">
+              <span class="tag" style="background: rgba(245, 158, 11, 0.2); color: #fbbf24;">Speed</span>
+              <span class="tag" style="background: rgba(234, 88, 12, 0.2); color: #fdba74;">Strategy</span>
+            </div>
+            <span class="play-arrow">PLAY ➔</span>
+          </div>
+        </div>
+
+        <!-- Game 2: The Imposter -->
+        <div class="game-card" style="--accent-gradient: linear-gradient(90deg, #ec4899, #8b5cf6); --card-glow: 0 0 25px rgba(236, 72, 153, 0.3);"
+             onclick="window.partyApp.selectGame('imposter')">
+          <div class="card-top">
+            <div class="card-icon">🕵️‍♂️🤫</div>
+            <div class="players-pill">3 - 10 PLAYERS</div>
+          </div>
+          <h3>The Imposter</h3>
+          <p>Everyone receives the same secret word except one player. Speak tricky one-word clues, bluff your way out, and vote out the spy!</p>
+          <div class="card-footer">
+            <div class="tag-list">
+              <span class="tag">Bluffing</span>
+              <span class="tag">Social Deduction</span>
+            </div>
+            <span class="play-arrow">PLAY ➔</span>
+          </div>
+        </div>
+
+        <!-- Game 3: Guess the Movie Name -->
+        <div class="game-card" style="--accent-gradient: linear-gradient(90deg, #06b6d4, #3b82f6); --card-glow: 0 0 25px rgba(6, 182, 212, 0.3);"
+             onclick="window.partyApp.selectGame('guess_movie')">
+          <div class="card-top">
+            <div class="card-icon">🎬🍿</div>
+            <div class="players-pill">2 - 10 PLAYERS</div>
+          </div>
+          <h3>Guess the Movie</h3>
+          <p>Decipher iconic Tamil movies (Leo, Jailer, Vikram, Baasha, Ghilli, Master, PS-1 & more!) from creative emojis, famous punch dialogues, and actor clues!</p>
+          <div class="card-footer">
+            <div class="tag-list">
+              <span class="tag" style="background: rgba(6, 182, 212, 0.15); color: #0284c7;">Kollywood</span>
+              <span class="tag" style="background: rgba(59, 130, 246, 0.15); color: #2563eb;">Dialogues</span>
+            </div>
+            <span class="play-arrow">PLAY ➔</span>
+          </div>
+        </div>
+
+        <!-- Game 4: Guess the Song Name -->
+        <div class="game-card" style="--accent-gradient: linear-gradient(90deg, #10b981, #06b6d4); --card-glow: 0 0 25px rgba(16, 185, 129, 0.3);"
+             onclick="window.partyApp.selectGame('guess_song')">
+          <div class="card-top">
+            <div class="card-icon">🎵🎧</div>
+            <div class="players-pill">TAMIL HITS • 2-10 PLAYERS</div>
+          </div>
+          <h3>Guess the Song</h3>
+          <p>Listen to catchy synthesized melodies of superhit Tamil tracks (Kolaveri, Vaathi Coming, Arabic Kuthu, Rowdy Baby, Hukum) and guess from lyric clues!</p>
+          <div class="card-footer">
+            <div class="tag-list">
+              <span class="tag" style="background: rgba(16, 185, 129, 0.15); color: #059669;">Anirudh / ARR</span>
+              <span class="tag" style="background: rgba(6, 182, 212, 0.15); color: #0284c7;">Audio Tune</span>
+            </div>
+            <span class="play-arrow">PLAY ➔</span>
+          </div>
+        </div>
+
+        <!-- Game 5: Party Extras -->
+        <div class="game-card" style="--accent-gradient: linear-gradient(90deg, #f43f5e, #f59e0b); --card-glow: 0 0 25px rgba(244, 63, 94, 0.3);"
+             onclick="window.partyApp.selectGame('party_extras')">
+          <div class="card-top">
+            <div class="card-icon">🍾⚡</div>
+            <div class="players-pill">ANY GROUP SIZE</div>
+          </div>
+          <h3>Party Extras</h3>
+          <p>Spin the Bottle, Truth or Dare, Most Likely To, and lightning-fast 5-Second Rule showdowns!</p>
+          <div class="card-footer">
+            <div class="tag-list">
+              <span class="tag" style="background: rgba(244, 63, 94, 0.2); color: #fda4af;">Icebreaker</span>
+              <span class="tag" style="background: rgba(245, 158, 11, 0.2); color: #fde68a;">Classic</span>
+            </div>
+            <span class="play-arrow">PLAY ➔</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== VIEW 2: ANIMAL MATCHING ARENA ==================== -->
+    <section id="view-animal" class="view-section">
+      <div class="game-arena">
+        <div class="arena-header">
+          <div class="arena-title">
+            <span style="font-size: 1.8rem;">🃏</span>
+            <div>
+              <h2>Animal Matching Card Game</h2>
+              <p style="font-size: 0.8rem; color: #94a3b8;">12 Cards • 3 Players • Collect 4 of the same animal!</p>
+            </div>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button class="rules-hint-btn" onclick="window.partyApp.openModal('rules-modal')">
+              📖 How to Play
+            </button>
+            <button class="btn-primary" id="animal-start-btn" onclick="window.animalGame.startOrRestart()" style="padding: 6px 16px; font-size: 0.85rem;">
+              Deal 12 Cards
+            </button>
+          </div>
+        </div>
+
+        <!-- 3-Player Circular Table Stage -->
+        <div class="table-stage">
+          <!-- Opponents Row (Players 2 & 3) -->
+          <div class="opponents-row" id="animal-opponents-row">
+            <!-- Opponent cards rendered dynamically -->
+          </div>
+
+          <!-- Center Circular Exchange Visualizer -->
+          <div class="center-circle">
+            <div class="center-circle-inner">
+              <div class="rotation-arrows">↻</div>
+              <div class="exchange-instruction">SWAP CLOCKWISE</div>
+            </div>
+          </div>
+
+          <div style="text-align: center; margin: 8px 0; font-size: 0.95rem; color: #cbd5e1;" id="animal-status-text">
+            Pick 1 card from your hand below and tap Pass!
+          </div>
+
+          <!-- Active Player Zone (Your Hand of 4 Cards) -->
+          <div class="active-player-zone">
+            <div class="hand-label">
+              <span>YOUR HAND (4 CARDS)</span>
+            </div>
+            <div class="cards-container" id="animal-my-hand">
+              <!-- 4 Animal Playing Cards rendered here -->
+            </div>
+
+            <div class="hand-actions">
+              <button class="btn-primary" id="animal-pass-btn" disabled onclick="window.animalGame.sendPassSelection()">
+                Select a Card to Pass
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== VIEW 3: IMPOSTER ARENA ==================== -->
+    <section id="view-imposter" class="view-section">
+      <div class="game-arena">
+        <div class="arena-header">
+          <div class="arena-title">
+            <span style="font-size: 1.8rem;">🕵️</span>
+            <div>
+              <h2>The Imposter</h2>
+              <p style="font-size: 0.8rem; color: #94a3b8;">Find the player who doesn't belong!</p>
+            </div>
+          </div>
+          <button class="rules-hint-btn" onclick="window.partyApp.openModal('rules-modal')">
+            📖 Rules
+          </button>
+        </div>
+
+        <div id="imposter-container">
+          <!-- Dynamic Imposter phases (Lobby, Reveal, Clue, Vote, Reveal) -->
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== VIEW 4: GUESS THE MOVIE ==================== -->
+    <section id="view-movie" class="view-section">
+      <div class="game-arena">
+        <div class="arena-header">
+          <div class="arena-title">
+            <span style="font-size: 1.8rem;">🎬</span>
+            <div>
+              <h2>Guess the Movie Name</h2>
+              <p style="font-size: 0.8rem; color: #94a3b8;">Emoji puzzles, clues, and blockbuster titles</p>
+            </div>
+          </div>
+          <button class="rules-hint-btn" onclick="window.partyApp.openModal('rules-modal')">
+            📖 How to Play
+          </button>
+        </div>
+
+        <div id="movie-container">
+          <!-- Dynamic Movie game state -->
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== VIEW 5: GUESS THE SONG ==================== -->
+    <section id="view-song" class="view-section">
+      <div class="game-arena">
+        <div class="arena-header">
+          <div class="arena-title">
+            <span style="font-size: 1.8rem;">🎵</span>
+            <div>
+              <h2>Guess the Song Name</h2>
+              <p style="font-size: 0.8rem; color: #94a3b8;">Synthesized 8-bit melodies & lyric riddles</p>
+            </div>
+          </div>
+          <button class="rules-hint-btn" onclick="window.partyApp.openModal('rules-modal')">
+            📖 How to Play
+          </button>
+        </div>
+
+        <div id="song-container">
+          <!-- Dynamic Song game state -->
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== VIEW 6: PARTY EXTRAS ==================== -->
+    <section id="view-party" class="view-section">
+      <div class="game-arena">
+        <div class="arena-header">
+          <div class="arena-title">
+            <span style="font-size: 1.8rem;">🍾</span>
+            <div>
+              <h2>Party Extras & Icebreakers</h2>
+              <p style="font-size: 0.8rem; color: #94a3b8;">Truth or Dare, Most Likely To, 5-Second Rule</p>
+            </div>
+          </div>
+        </div>
+
+        <div id="party-extras-container">
+          <!-- Dynamic Party Extras state -->
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ==================== MODALS ==================== -->
+
+  <!-- Modal: Create Room -->
+  <div class="modal-overlay" id="create-room-modal">
+    <div class="modal-box">
+      <button class="modal-close" onclick="window.partyApp.closeModal('create-room-modal')">&times;</button>
+      <h2 style="margin-bottom: 8px;">Host a Game Room</h2>
+      <p style="color: #94a3b8; font-size: 0.9rem; margin-bottom: 20px;">
+        Friends can join from their phones using your 4-letter room code!
+      </p>
+
+      <div style="margin-bottom: 18px;">
+        <label style="display: block; font-size: 0.85rem; color: #cbd5e1; margin-bottom: 6px;">Your Name / Nickname:</label>
+        <input type="text" id="host-name-input" value="Player 1" 
+               style="width: 100%; padding: 12px 14px; border-radius: 10px; background: rgba(255,255,255,0.06); border: 1px solid var(--border-glass); color: white; font-size: 1rem; outline: none;">
+      </div>
+
+      <button class="btn-primary" style="width: 100%; justify-content: center;" onclick="window.partyApp.createRoom('hub')">
+        🚀 Create Room & Get Code
+      </button>
+    </div>
+  </div>
+
+  <!-- Modal: Join Room -->
+  <div class="modal-overlay" id="join-room-modal">
+    <div class="modal-box">
+      <button class="modal-close" onclick="window.partyApp.closeModal('join-room-modal')">&times;</button>
+      <h2 style="margin-bottom: 8px;">Join Friend's Room</h2>
+      <p style="color: #94a3b8; font-size: 0.9rem; margin-bottom: 20px;">
+        Enter the 4-character room code from the host's screen.
+      </p>
+
+      <div style="margin-bottom: 16px;">
+        <label style="display: block; font-size: 0.85rem; color: #cbd5e1; margin-bottom: 6px;">Room Code:</label>
+        <input type="text" id="join-code-input" placeholder="e.g. LION" maxlength="5"
+               style="width: 100%; padding: 12px 14px; border-radius: 10px; background: rgba(255,255,255,0.06); border: 1px solid var(--border-glass); color: #38bdf8; font-size: 1.5rem; font-weight: 800; text-transform: uppercase; letter-spacing: 2px; text-align: center; outline: none;">
+      </div>
+
+      <div style="margin-bottom: 20px;">
+        <label style="display: block; font-size: 0.85rem; color: #cbd5e1; margin-bottom: 6px;">Your Name:</label>
+        <input type="text" id="join-name-input" value="Friend" 
+               style="width: 100%; padding: 12px 14px; border-radius: 10px; background: rgba(255,255,255,0.06); border: 1px solid var(--border-glass); color: white; font-size: 1rem; outline: none;">
+      </div>
+
+      <button class="btn-primary" style="width: 100%; justify-content: center;" onclick="window.partyApp.joinRoom()">
+        🔑 Connect to Game
+      </button>
+    </div>
+  </div>
+
+  <!-- Modal: Share Room / Wi-Fi info -->
+  <div class="modal-overlay" id="share-room-modal">
+    <div class="modal-box" style="text-align: center;">
+      <button class="modal-close" onclick="window.partyApp.closeModal('share-room-modal')">&times;</button>
+      <h2>Invite Friends</h2>
+      <p style="color: #94a3b8; font-size: 0.9rem; margin: 8px 0 16px;">
+        Friends on the same Wi-Fi can open the URL and type your room code:
+      </p>
+
+      <div style="background: rgba(139, 92, 246, 0.15); border: 2px dashed #8b5cf6; border-radius: 14px; padding: 16px; margin-bottom: 16px;">
+        <div style="font-size: 0.85rem; color: #c4b5fd; text-transform: uppercase; letter-spacing: 1px;">ROOM CODE</div>
+        <div style="font-size: 3rem; font-weight: 900; letter-spacing: 4px; color: #fff;" id="share-modal-code">----</div>
+      </div>
+
+      <div style="background: rgba(255,255,255,0.04); border-radius: 10px; padding: 12px; margin-bottom: 18px; font-size: 0.85rem; color: #94a3b8;">
+        <span>Wi-Fi Address: </span>
+        <strong style="color: #38bdf8;" id="share-wifi-ip">http://192.168.0.199:5000</strong>
+      </div>
+
+      <div style="display: flex; gap: 10px;">
+        <button class="btn-primary" style="flex: 1; justify-content: center;" onclick="window.partyApp.copyRoomCode()">
+          📋 Copy Code
+        </button>
+        <button class="btn-secondary" style="flex: 1; justify-content: center;" onclick="window.partyApp.copyRoomLink()">
+          🔗 Copy Link
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Rules & How to Play -->
+  <div class="modal-overlay" id="rules-modal">
+    <div class="modal-box" style="max-height: 80vh; overflow-y: auto;">
+      <button class="modal-close" onclick="window.partyApp.closeModal('rules-modal')">&times;</button>
+      <h2 style="margin-bottom: 14px;">📖 Game Rules & Instructions</h2>
+
+      <div style="margin-bottom: 20px;">
+        <h3 style="color: #fbbf24; display: flex; align-items: center; gap: 6px;">
+          <span>🃏</span> Animal Matching Card Game
+        </h3>
+        <ul style="color: #cbd5e1; font-size: 0.9rem; line-height: 1.6; padding-left: 20px; margin-top: 8px;">
+          <li>Designed for <strong>3 players</strong> with <strong>12 shuffled cards</strong>.</li>
+          <li>The cards contain 3 animals: <strong>Lion 🦁 (4 cards)</strong>, <strong>Tiger 🐯 (4 cards)</strong>, and <strong>Elephant 🐘 (4 cards)</strong>.</li>
+          <li>At the start, cards are shuffled and <strong>each player receives 4 cards</strong>.</li>
+          <li><strong>Exchange Rule:</strong> Each round, every player selects 1 unwanted card from their hand to pass clockwise to the next player.</li>
+          <li><strong>Objective:</strong> Be the <em>first player</em> to collect all <strong>4 cards of the same animal</strong> (e.g. 4 Lions, 4 Tigers, or 4 Elephants) to win!</li>
+          <li>If playing solo or with 2 players, smart AI bots fill the empty seat(s) automatically.</li>
+        </ul>
+      </div>
+
+      <div style="margin-bottom: 20px;">
+        <h3 style="color: #ec4899; display: flex; align-items: center; gap: 6px;">
+          <span>🕵️</span> The Imposter
+        </h3>
+        <p style="color: #cbd5e1; font-size: 0.9rem; line-height: 1.5; margin-top: 6px;">
+          Citizens get the true secret word (e.g. "Coffee"). The Imposter receives a slightly different word (e.g. "Tea"). Players give one-word clues, discuss who gave a weird clue, and vote out the suspect!
+        </p>
+      </div>
+
+      <div style="margin-bottom: 20px;">
+        <h3 style="color: #38bdf8; display: flex; align-items: center; gap: 6px;">
+          <span>🎬</span> Guess the Movie Name
+        </h3>
+        <p style="color: #cbd5e1; font-size: 0.9rem; line-height: 1.5; margin-top: 6px;">
+          Look at the emoji combination (e.g. 🦁👑 for The Lion King or 🚢❄️💔 for Titanic). Reveal hints for director, actors, or release year if stuck!
+        </p>
+      </div>
+
+      <div>
+        <h3 style="color: #34d399; display: flex; align-items: center; gap: 6px;">
+          <span>🎵</span> Guess the Song Name
+        </h3>
+        <p style="color: #cbd5e1; font-size: 0.9rem; line-height: 1.5; margin-top: 6px;">
+          Hit the Play button to listen to synthesized melody notes generated directly through Web Audio. Look at the emoji hints and lyrics to name the song!
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confetti Canvas -->
+  <canvas id="confetti-canvas"></canvas>
+
+  <!-- Scripts -->
+  <script src="/static/js/sound.js"></script>
+  <script src="/static/js/confetti.js"></script>
+  <script src="/static/js/game-animal.js"></script>
+  <script src="/static/js/game-imposter.js"></script>
+  <script src="/static/js/game-movie.js"></script>
+  <script src="/static/js/game-song.js"></script>
+  <script src="/static/js/game-party.js"></script>
+  <script src="/static/js/main.js"></script>
+</body>
+</html>
+
